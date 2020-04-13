@@ -1,0 +1,304 @@
+##### R_Covid_Tracking_Code.txt #######
+
+## Create a directory or file folder for the work space [I used the one below} ############
+cd /home/dsh/owncloud-dsh/90_Coding/R-Covid19
+
+###############################################################################
+# Update the data from https://github.com/nytimes/covid-19-data
+#  and download into the workspace directory ##################
+## To Download go to the data file, check the "Raw" tab, 
+##  and copy the data into a text file 
+###############################################################################
+
+# The data format is:
+
+> states.csv
+date,state,fips,cases,deaths
+2020-01-21,Washington,53,1,0
+2020-01-22,Washington,53,1,0
+2020-01-23,Washington,53,1,0
+2020-01-24,Illinois,17,1,0
+2020-01-24,Washington,53,1,0
+2020-01-25,California,06,1,0
+2020-01-25,Illinois,17,1,0
+2020-01-25,Washington,53,1,0
+. . . . 
+
+> cat popbyst.csv
+state,fips,pop
+Alabama,1,4908621
+Alaska,2,734002
+Arizona,4,7378494
+Arkansas,5,3038999
+California,6,39937489
+Colorado,8,5845526
+Connecticut,9,3563077
+Delaware,10,982895
+District of Columbia,11,720687
+Florida,12,21992985
+Georgia,13,10736059
+Hawaii,15,1412687
+. . . .
+
+###############################################################################
+#### Open a Terminal and start R  #############################################
+###############################################################################
+
+R
+
+# Install the R packages:R
+install.packages("dplyr")
+install.packages("zoo") # for aggeration
+install.packages("ggplot2")
+install.packages("tidyverse")
+install.packages("gridExtra")
+library(dplyr)
+library("ggplot2")
+library(zoo)
+library(reshape2)
+library(tidyverse)
+library(gridExtra)
+
+## To Clear the Data Sets
+rm(list=ls(all=TRUE))
+
+#### Import the .csv files ####################################################
+cvdstts = read.csv("/home/dsh/owncloud-dsh/90_Coding/R-Covid19/states.csv", header = TRUE, sep=",")
+
+popbyst = read.csv("/home/dsh/owncloud-dsh/90_Coding/R-Covid19/popbyst.csv", header = TRUE, sep=",")
+
+# Check the results:
+head(cvdstts)
+tail(cvdstts)
+
+str(popbyst)
+head(popbyst)
+
+###############################################################################
+### create a date veriable with the month & year & day ########################
+
+cvdstts$ymd <- as.Date(as.character(cvdstts$date), "%Y-%m-%d")
+
+# Check the results:
+str(cvdstts)
+head(cvdstts)
+
+str(popbyst)
+head(popbyst)
+
+###############################################################################
+#### join the daily data for states and population data ####################### ###############################################################################
+df2 <- merge(cvdstts, popbyst, all=TRUE)
+
+#### REMOVE #### INCOMPLETE from both data sets  ##############################
+df2 <- filter(df2, fips != 66)  ### Guam	66
+df2 <- filter(df2, fips != 69)  ### Northern Mariana Islands	69
+df2 <- filter(df2, fips != 78)  ### Virgin Islands	78
+df2 <- filter(df2, fips != 60)  ### American Samoa   60
+
+cvdstts <- filter(cvdstts, fips != 66) ### Guam	66
+cvdstts <- filter(cvdstts, fips != 69) ### Northern Mariana Islands	69
+cvdstts <- filter(cvdstts, fips != 78) ### Virgin Islands	78
+cvdstts <- filter(cvdstts, fips != 60) ### American Samoa   60
+
+head(df2)
+tail(df2)
+
+###############################################################################
+####  Create the deaths / Millions variable  ##################################
+###############################################################################
+
+df2$perM = df2$deaths / df2$pop * 1000000
+
+###############################################################################
+# line plot the total deaths for each state  ##################################
+###############################################################################
+
+ggplot(data = cvdstts, aes(x=ymd, y=deaths, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State", subtitle = "NY Times https://github.com/nytimes/covid-19-data") + ggsave(file = "01-All_States.jpg", dpi = 300, width = 17, height = 11, units = "in")
+
+###############################################################################
+# line plot the deaths per capita (per million) for each state  ###############
+###############################################################################
+
+ggplot(data = df2, aes(x=ymd, y=perM, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State Per Million ", subtitle = "NY Times https://github.com/nytimes/covid-19-data") + ggsave(file = "02-All_States_per_cap.jpg", dpi = 300, width = 17, height = 11, units = "in")
+
+
+###############################################################################
+# line plot the deaths per capita (per million) for Tri-States NY NJ CT #######
+###############################################################################
+### fips
+### New York	36 
+### Connecticut	9
+### NJ = 34
+
+df4 <- filter(df2, fips ==9 | fips == 36 | fips == 34)
+
+ggplot(data = df4, aes(x=ymd, y=deaths, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State", subtitle = "NY Times https://github.com/nytimes/covid-19-data") + ggsave(file = "03-TRI_States_deaths.jpg", dpi = 300, width = 17, height = 11, units = "in")
+
+ggplot(data = df4, aes(x=ymd, y=perM, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State Per Million ", subtitle = "NY Times https://github.com/nytimes/covid-19-data") + ggsave(file = "04-TRI_States_per_cap.jpg", dpi = 300, width = 17, height = 11, units = "in")
+
+####################################################################################
+##########################
+#### NOT NY ##############
+#### ! indicates logical negation (NOT) ####
+
+df3 <- filter(df2, fips != 36)
+
+### Plot the ALL BUT NY #####
+ggplot(data = df3, aes(x=ymd, y=deaths, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State", subtitle = "NY Times https://github.com/nytimes/covid-19-data") + ggsave(file = "05-States_deaths_w-o_NY.jpg", dpi = 300, width = 17, height = 11, units = "in")
+
+ggplot(data = df3, aes(x=ymd, y=perM, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State Per Million ", subtitle = "NY Times https://github.com/nytimes/covid-19-data") + ggsave(file = "06-States_per_cap_w-o_NY.jpg", dpi = 300, width = 17, height = 11, units = "in")
+
+###############################################################################
+### Filter to the latest Date #############
+df5 <- filter (df2, date == "2020-04-10")
+
+df5 <- df5[order(df5$perM),]
+
+
+ggplot(data = df2, aes(x=ymd, y=perM, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State Per Million ", subtitle = "NY Times https://github.com/nytimes/covid-19-data")
+
+df3 <- df2[order(df2$perM),]
+
+df4 <- filter(df2, fips == 36 | fips == 34 | fips == 6 | fips == 53 | fips == 22 | fips == 26)
+
+ggplot(data = df4, aes(x=ymd, y=perM, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State Per Million ", subtitle = "NY Times https://github.com/nytimes/covid-19-data")
+
+
+df3 <- df2[order(df2$ymd),]
+ww <- paste(df3$state, df3$ymd, df3$perM)
+print(ww)
+
+
+
+###################################
+
+df4 <- filter(df2, fips != 36)
+ggplot(data = df4, aes(x=ymd, y=perM, group = state, colour = state)) + geom_line(size = 1) + geom_point(size = 2) + labs(title = "Deaths by State Per Million ", subtitle = "NY Times https://github.com/nytimes/covid-19-data")
+### Sort the data
+df5 <- df4[order(df4$perM),]
+df6 <- df5[order(df5$ymd),]
+
+#####################################
+#### Remove all but the last day ####
+d9 <- filter(df2, ymd == "2020-04-12")
+df9 <- d9[order(-d9$perM),]
+  
+head(df9)
+
+###############################################################################
+#### Print a Table ########################ls####################################
+
+pdf("data_output.pdf", height=16, width=8.5)
+grid.table(df9)
+dev.off()
+
+#################################################################################
+
+
+
+###################################################### For Reference ########
+state  fips
+Alabama	1
+Alaska	2
+Arizona	4
+Arkansas	5
+California	6
+Colorado	8
+Connecticut	9
+Delaware	10
+District of Columbia	11
+Florida	12
+Georgia	13
+Hawaii	15
+Idaho	16
+Illinois	17
+Indiana	18
+Iowa	19
+Kansas	20
+Kentucky	21
+Louisiana	22
+Maine	23
+Maryland	24
+Massachusetts	25
+Michigan	26
+Minnesota	27
+Mississippi	28
+Missouri	29
+Montana	30
+Nebraska	31
+Nevada	32
+New Hampshire	33
+New Jersey	34
+New Mexico	35
+New York	36
+North Carolina	37
+North Dakota	38
+Ohio	39
+Oklahoma	40
+Oregon	41
+Pennsylvania	42
+Rhode Island	44
+South Carolina	45
+South Dakota	46
+Tennessee	47
+Texas	48
+Utah	49
+Vermont	50
+Virginia	51
+Washington	53
+West Virginia	54
+Wisconsin	55
+Wyoming	56
+Guam	66
+Northern Mariana Islands	69
+Puerto Rico	72
+Virgin Islands	78
+American Samoa   60
+
+
+
+****************
+Misc Notes:
+
+dm <- read.table(text = Lines, header = TRUE)
+dm$Date <- as.Date(dm$Date, "%m/%d/%Y")
+plot(Visits ~ Date, dm, xaxt = "n", type = "l")
+axis(1, dm$Date, format(dm$Date, "%b %d"), cex.axis = .7)
+
+The use of text = Lines is just to keep the example self-contained and in reality it would be replaced with something like "myfile.dat" .
+
+
+using the ggplot2 for this sort of thing:
+
+df$Date <- as.Date( df$Date, '%m/%d/%Y')
+require(ggplot2)
+ggplot( data = df, aes( Date, Visits )) + geom_line() 
+
+
+library(rlang)
+library(reshape2)
+library(tidyr)
+library(plyr)
+library(dplyr)
+library(ggplot2)
+library(plotly)
+library(ggthemes)
+library(scales)
+library(stringr)
+library(RColorBrewer)
+library(data.table)
+library(forcats)
+###############
+
+# list objects in the working environment
+ls()
+
+# list the variables in mydata
+names(mydata)
+
+# list the structure of mydata
+str(mydata)
+
+# print last 5 rows of mydata
+tail(mydata, n=5) 
